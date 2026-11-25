@@ -1,0 +1,178 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Flower Steps 1 to 5</title>
+<style>body{margin:0;background:#17151d;color:#fff;font:16px system-ui;text-align:center;padding:12px}
+canvas{width:100%;max-width:960px;background:#221f2b;border-radius:12px}
+button{font:inherit;padding:8px 16px;margin:4px;border:0;border-radius:8px;cursor:pointer}
+input{width:min(90%,700px)}</style></head><body>
+<h2 id="title"></h2><p id="text"></p><canvas id="c" width="960" height="500"></canvas><br>
+<input id="s" type="range" min="0" max="1" step="0.001" value="0" aria-label="Scrub animation"><br>
+<button id="back">Back</button><button id="play">Pause</button><button id="replay">Replay</button><button id="next">Next</button>
+<script>
+// ===== GEOMETRY (units: cm, x = right, y = up, z = toward viewer) — port this part =====
+const TAIL=1.27, WRAP=30-2*TAIL, TURNS=8, PITCH=0.65, WIRE=0.3, STRETCHED=20, END_R=0.12;
+const R=Math.sqrt((WRAP/TURNS)**2-PITCH**2)/(2*Math.PI), COIL=TURNS*PITCH;
+const clamp=v=>Math.max(0,Math.min(1,v)), ease=v=>{v=clamp(v);return v*v*(3-2*v)};
+const helix=(u,len,r)=>{const a=u*TURNS*2*Math.PI;return [u*len,r*Math.cos(a),r*Math.sin(a)]};
+// Step 1: p 0..1 wraps. Tail is held still; the loose end hangs down, then ends as a 0.5 in tail.
+function wrapPoints(p){
+  const pts=[], start=helix(0,COIL,R);
+  for(let i=60;i>0;i--) pts.push([start[0]-TAIL*i/60, start[1], 0]);
+  for(let i=0;i<=500;i++){const u=p*i/500; pts.push(helix(u,COIL,R));}
+  const e=helix(p,COIL,R), left=WRAP*(1-p)+TAIL, k=ease((p-0.85)/0.15);
+  for(let i=1;i<=100;i++){const d=left*i/100;
+    pts.push([e[0]+d*(0.45+0.55*k), e[1]-d*0.24*clamp(d)*(1-k), e[2]*(1-clamp(d/0.5))]);}
+  return pts;
+}
+// Step 2: p 0..1 stretches. Left end fixed; coil narrows into a ridged stick.
+// (END_R is chosen for readability, not physical accuracy.)
+function stretchPoints(p){
+  const len=COIL+(STRETCHED-COIL)*p;
+  const radius=R+(END_R-R)*ease(p), pts=[], s=helix(0,len,radius);
+  for(let i=60;i>0;i--) pts.push([-TAIL*i/60, s[1], 0]);
+  for(let i=0;i<=600;i++) pts.push(helix(i/600,len,radius));
+  for(let i=1;i<=60;i++) pts.push([len+TAIL*i/60, s[1], 0]);
+  return {pts,len};
+}
+// Step 3: two equal stretched strands, no offset. cross 0..1 brings them together, twist 0..1 = 2 full turns.
+// side is +1 or -1 (which strand). Centered on x=0.
+const LEN=STRETCHED+2*TAIL, TWIST_W=4.5, APART=1.7, CONTACT=0.32;
+function twistPoints(side,cross,twist){
+  const total=Math.PI*cross+4*Math.PI*twist, mid=APART+(CONTACT-APART)*cross, pts=[];
+  for(let i=0;i<=700;i++){
+    const x=-LEN/2+LEN*i/700, u=clamp((x+TWIST_W/2)/TWIST_W), a=total*u;
+    const d=side*(mid+(APART-mid)*ease((Math.abs(x)-TWIST_W/2)/3));
+    const c=clamp((x+STRETCHED/2)/STRETCHED), b=c*TURNS*2*Math.PI, rip=(c>0&&c<1)?END_R:0;   // stretched-coil ripple
+    pts.push([x, d*Math.cos(a)+rip*(Math.cos(b)-1), d*Math.sin(a)+rip*Math.sin(b)]);
+  }
+  return pts;
+}
+// Step 4: starts from the finished twist. f 0..1 bends both halves down at the middle; pinch 0..1 squeezes the top.
+// The middle (x=0) becomes the top of the fold.
+const BEND=1.2;
+function foldPoints(side,f,pinch){
+  const src=twistPoints(side,1,1), n=src.length-1, mid=n/2, ds=LEN/n, out=[];
+  const angle=x=>-f*Math.PI/2*Math.max(-1,Math.min(1,x/(Math.PI*BEND/2)));
+  const line=[]; line[mid]=[0,0];
+  for(const dir of [1,-1]) for(let i=mid+dir;i>=0&&i<=n;i+=dir){
+    const a=angle((i-dir/2-mid)*ds), q=line[i-dir]; line[i]=[q[0]+dir*ds*Math.cos(a), q[1]+dir*ds*Math.sin(a)];
+  }
+  for(let i=0;i<=n;i++){
+    const x=src[i][0], a=angle(x), squeeze=1-0.45*pinch*clamp(1-(Math.abs(x)-1)/2.5);
+    const off=src[i][1]*(1-0.68*f)*squeeze;   // draw the loose ends closer together as they hang
+    out.push([line[i][0]*squeeze-off*Math.sin(a), line[i][1]+off*Math.cos(a), src[i][2]*squeeze]);
+  }
+  return out;
+}
+// Step 5: starts from the pinched fold. w 0..1 winds all four hanging ends into one rope, top to bottom.
+// ASSUMPTION: all four ends are twisted around each other together.
+const ROPE_R=0.42, ROPE_TURNS=3.5, HANG=LEN/2-1;
+function spiralPoints(side,w){
+  const src=foldPoints(side,1,1), mid=(src.length-1)/2, front=w*(HANG+1.8);
+  const turn=d=>2*Math.PI*ROPE_TURNS*Math.min(d,HANG)/HANG;
+  const spin=([x,y,z],a)=>[x*Math.cos(a)-z*Math.sin(a), y, x*Math.sin(a)+z*Math.cos(a)];
+  return src.map((q,i)=>{
+    const depth=Math.max(0,-q[1]), k=ease((front-depth)/1.5);
+    const phase=i<=mid?(side>0?Math.PI:Math.PI/2):(side>0?1.5*Math.PI:0);   // 4 ends, 90 degrees apart
+    const r=ROPE_R*clamp(depth/0.9);
+    const rope=spin([r*Math.cos(phase),q[1],r*Math.sin(phase)],turn(depth)), loose=spin(q,turn(Math.min(front,HANG))*clamp(depth/2));
+    return loose.map((v,j)=>v+(rope[j]-v)*k);
+  });
+}
+// ===== DRAWING (preview only) =====
+const c=document.getElementById('c'), g=c.getContext('2d'), S=document.getElementById('s');
+let scale=34, ox=300, oy=220;
+const project=([x,y,z])=>[ox+(x+z*0.35)*scale, oy-(y-z*0.12)*scale, z];
+function segments(pts,color,w){return pts.slice(1).map((q,i)=>{const a=project(pts[i]),b=project(q);return {a,b,z:(a[2]+b[2])/2,color,w}})}
+function paint(list){
+  list.sort((m,n)=>m.z-n.z); g.lineCap='round';
+  for(const m of list){
+    const light=m.color[2]+Math.max(-14,Math.min(14,m.z*22));
+    for(const [w,l] of [[m.w+0.09,light-18],[m.w,light]]){
+      g.strokeStyle=`hsl(${m.color[0]} ${m.color[1]}% ${l}%)`; g.lineWidth=w*scale;
+      g.beginPath(); g.moveTo(m.a[0],m.a[1]); g.lineTo(m.b[0],m.b[1]); g.stroke();
+    }
+  }
+}
+const PURPLE=[268,70,60], STICK=[130,35,42];
+function label(t,x,y,col='#ffe45c'){g.fillStyle=col;g.font='bold 20px system-ui';g.textAlign='center';g.fillText(t,x,y)}
+function arrow(x1,y1,x2,y2){const a=Math.atan2(y2-y1,x2-x1);g.strokeStyle=g.fillStyle='#ffe45c';g.lineWidth=6;
+  g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.beginPath();g.moveTo(x2+12*Math.cos(a),y2+12*Math.sin(a));
+  for(const d of [2.5,-2.5]) g.lineTo(x2+14*Math.cos(a+d),y2+14*Math.sin(a+d));g.fill()}
+function hold(x,y){g.strokeStyle='#ffe45c';g.lineWidth=3;g.beginPath();g.arc(x,y,18,0,7);g.stroke();label('hold',x,y-28)}
+const steps=[
+ {title:'Step 1: Wrap',text:'Leave a 0.5 inch tail, wrap turn beside turn, leave 0.5 inch at the end, then slide the stick out.',secs:12,
+  draw(t){
+   scale=38;ox=360;oy=190;
+   const p=clamp((t-0.08)/0.67), off=ease((t-0.8)/0.18);
+   const stick=[];for(let i=0;i<=200;i++) stick.push([-2+off*10+i/200*11,0,0]);
+   paint([...segments(stick,STICK,0.28),...segments(wrapPoints(p),PURPLE,WIRE*2)]);
+   const tail=project([-TAIL/2,R,0]); hold(tail[0],tail[1]);
+   label('0.5 in',tail[0],tail[1]+48);
+   if(p>0.98){const q=project([COIL+TAIL/2,R,0]);label('0.5 in',q[0]+14,q[1]+48)}
+   if(t<0.78){const e=project(helix(p,COIL,R));label('wrap',e[0]+68,e[1]-48);arrow(e[0]+34,e[1]-34,e[0]+100,e[1]-34)}
+   else label('slide the stick out',650,120);
+  }},
+ {title:'Step 2: Stretch',text:'Hold the left end still. Pull the right end sideways to about 20 cm.',secs:9,
+  draw(t){
+   scale=34;ox=130;
+   const p=ease((t-0.15)/0.65), now=stretchPoints(p);
+   oy=100; g.globalAlpha=0.3; paint(segments(stretchPoints(0).pts,PURPLE,WIRE*2)); g.globalAlpha=1;
+   label('before',ox+(COIL+TAIL)*scale+50,106,'#bbb');
+   oy=270; paint(segments(now.pts,PURPLE,WIRE*2));
+   const end=ox+now.len*scale; hold(ox-TAIL*scale/2,270);
+   const tip=end+TAIL*scale; arrow(tip+14,270,tip+60,270); label('pull',tip+40,240);
+   g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.moveTo(ox,360);g.lineTo(end,360);
+   for(const x of [ox,end]){g.moveTo(x,348);g.lineTo(x,372)}g.stroke();
+   label(now.len.toFixed(0)+' cm',(ox+end)/2,398,'#fff');
+  }},
+ {title:'Step 3: Twist together',text:'Cross the two strands at the middle. Hold there and twist them around each other twice.',secs:12,
+  draw(t){
+   scale=34;ox=480;oy=250;
+   const cross=ease((t-0.1)/0.2), twist=clamp((t-0.38)/0.5);
+   paint([...segments(twistPoints(1,cross,twist),PURPLE,WIRE*2),...segments(twistPoints(-1,cross,twist),[285,65,72],WIRE*2)]);
+   if(t<0.34){label('cross at the middle',ox,90);arrow(ox,105,ox,160);arrow(ox,395,ox,340)}
+   else{
+    hold(ox-TWIST_W/2*scale-6,oy);
+    const x=ox+TWIST_W/2*scale+10;
+    g.strokeStyle='#ffe45c';g.lineWidth=5;g.beginPath();g.ellipse(x,oy,24,80,0,-1.3,1.3);g.stroke();
+    arrow(x+12,oy+68,x+2,oy+80);
+    label(twist<1?'twist '+(twist<0.5?1:2)+' of 2':'done: joined in the middle',ox,100);
+   }
+  }},
+ {title:'Step 4: Fold in half',text:'Fold at the twisted middle so all four ends point down. Then pinch the top gently.',secs:10,
+  draw(t){
+   const f=ease((t-0.15)/0.45), pinch=ease((t-0.7)/0.15);
+   scale=34;ox=480;oy=250-150*f;
+   paint([...segments(foldPoints(1,f,pinch),PURPLE,WIRE*2),...segments(foldPoints(-1,f,pinch),[285,65,72],WIRE*2)]);
+   if(t<0.62){
+    label('fold the ends down',ox,45);
+    const y=330-60*f; arrow(ox-300+120*f,y,ox-270+150*f,y+80); arrow(ox+300-120*f,y,ox+270-150*f,y+80);
+   } else {
+    const y=oy+55, gap=120-45*pinch;
+    label('pinch the top gently',ox,45);
+    arrow(ox-gap-50,y,ox-gap,y); arrow(ox+gap+50,y,ox+gap,y);
+   }
+  }},
+ {title:'Step 5: Wind the spiral',text:'Hold the top. Twist all four ends together, working down, into one thick rope.',secs:12,
+  draw(t){
+   const w=clamp((t-0.12)/0.72);
+   scale=34;ox=480;oy=100;
+   paint([...segments(spiralPoints(1,w),PURPLE,WIRE*2),...segments(spiralPoints(-1,w),[285,65,72],WIRE*2)]);
+   hold(ox-32,oy+22);
+   if(w<1){
+    const y=oy+30+w*HANG*scale;
+    g.strokeStyle='#ffe45c';g.lineWidth=5;g.beginPath();g.ellipse(ox,y,85,24,0,0.25,2.9);g.stroke();
+    arrow(ox-74,y+12,ox-90,y-2); label('twist downward',ox+190,y+8);
+   } else label('flower head done',ox+190,oy+160);
+  }}];
+let step=0,t=0,playing=true,last=null;
+function show(){g.clearRect(0,0,c.width,c.height);const s=steps[step];s.draw(t);
+  title.textContent=s.title;text.textContent=s.text;S.value=t;play.textContent=playing?'Pause':'Play'}
+function go(n){step=n;t=0;playing=true;show()}
+function tick(now){if(last!==null&&playing){t+=(now-last)/1000/steps[step].secs;if(t>1.2)t=0}
+  last=now;const s=Math.min(t,1);const keep=t;t=s;show();t=keep;requestAnimationFrame(tick)}
+S.oninput=()=>{t=+S.value;playing=false;show()};
+play.onclick=()=>{playing=!playing};replay.onclick=()=>go(step);
+next.onclick=()=>go(Math.min(steps.length-1,step+1));back.onclick=()=>go(Math.max(0,step-1));
+requestAnimationFrame(tick);
+</script></body></html>

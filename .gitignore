@@ -5,3 +5,13 @@
 .codex/config.toml
 .claude/settings.local.json
 # END Lens Studio managed Agents-Docs block
+
+# Local / generated
+.virtual-scene.json
+Plugins/
+_disabled_packages/
+**/qa-captures/
+*.esproj.*.lock
+Cache/
+Workspaces/
+Support/

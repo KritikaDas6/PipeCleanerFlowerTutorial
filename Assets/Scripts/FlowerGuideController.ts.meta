@@ -1,0 +1,57 @@
+- !<AssetImportMetadata/0ab314b0-38e8-4e60-8950-091b193d4e0d>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 6122bbb7-9a12-4897-9390-5a0eb651b297
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 6122bbb7-9a12-4897-9390-5a0eb651b297
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 47b4980c-f3bc-484d-961a-df950828de81
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/47b4980c-f3bc-484d-961a-df950828de81>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  ComponentUid: 6b1137af-45f0-4401-bc1e-0d52f3b23814
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    handMat: false
+    purpleMat: false
+    stickMat: false
+    uiMat: false
+    yellowMat: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - purpleMat: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      yellowMat: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      stickMat: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      uiMat: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      handMat: !<reference.Material> 00000000-0000-0000-0000-000000000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - // @input Asset.Material purpleMat
+    - // @input Asset.Material yellowMat
+    - // @input Asset.Material stickMat
+    - // @input Asset.Material uiMat
+    - // @input Asset.Material handMat
